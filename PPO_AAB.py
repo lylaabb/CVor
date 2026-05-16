@@ -292,28 +292,7 @@ class PPO_NEW:
             # Finding the ratio (pi_theta / pi_theta__old)
             ratios = torch.exp(logprobs - old_logprobs.detach())
 
-            '''
-            #########################################
-            main part for CVor with F = f(x) * log p
-            #########################################
-            '''
-            # base_value = state_values_guide.detach()
-            # base_value = (base_value - base_value.mean()) / (base_value.std() + 1e-5)
-            #
-            # F_value = (base_value.sum() - base_value) * ratios / (len(base_value) - 1)
-            # # tilde_F_value = torch.exp(F_value - F_value.detach()).mean()
-            # # CVor = (torch.exp(tilde_F_value - tilde_F_value.detach()) - torch.exp(F_value - F_value.detach()))
-            # CVor = 1 - torch.exp(F_value - F_value.detach())
-
-            # base_value = state_values_guide.detach()
-            # base_value = (base_value - base_value.mean()) / (base_value.std() + 1e-5)
-            # deps_w = base_value * ratios
-            # deps_v = torch.exp(deps_w - deps_w.detach()).mean()
-            # CVor = (torch.exp(deps_v - deps_v.detach()) - torch.exp(deps_w - deps_w.detach()))
-            # CVor = deps_w
-            '''
-            #########################################
-            '''
+            
 
             # Finding Surrogate Loss
             surr1 = ratios * advantages
