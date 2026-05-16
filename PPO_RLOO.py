@@ -157,6 +157,7 @@ class PPO_RLOO:
         self.old_grad = 0
         self.learning_rate = 10e-4
         self.max_delta = 10e-5
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def set_action_std(self, new_action_std):
         if self.has_continuous_action_space:
@@ -292,9 +293,9 @@ class PPO_RLOO:
             #########################################
             '''
             F_value = (loss.sum() - loss) / (len(loss) - 1)
-            # tilde_F_value = torch.exp(F_value - F_value.detach()).mean()
-            # CVor = (torch.exp(tilde_F_value - tilde_F_value.detach()) - torch.exp(F_value - F_value.detach()))
-            CVor = 1 - torch.exp(F_value - F_value.detach())
+            tilde_F_value = torch.exp(F_value - F_value.detach()).mean()
+            CVor = (torch.exp(tilde_F_value - tilde_F_value.detach()) - torch.exp(F_value - F_value.detach()))-1
+            # CVor = 1 - torch.exp(F_value - F_value.detach())
             CVor_loss = loss + CVor
 
             # n = len(loss)
@@ -325,21 +326,21 @@ class PPO_RLOO:
                 total_grad.append((parms.grad ** 2).mean())
                 total_grad_out.append((parms.grad).mean())
             self.old_grad = self.cur_grad
-            self.cur_grad = torch.Tensor(total_grad).cuda().mean()
+            self.cur_grad = torch.Tensor(total_grad).to(self.device).mean()
             delta_grad = torch.abs(self.cur_grad - self.old_grad)
             if delta_grad > self.max_delta:
                 self.max_delta = delta_grad
             self.alpha = torch.max(
                 torch.min(self.alpha - self.learning_rate * (self.cur_grad - self.old_grad) / self.max_delta,
-                          torch.tensor(1.0).cuda()),
-                torch.tensor(0.0).cuda()
+                          torch.tensor(1.0).to(self.device)),
+                torch.tensor(0.0).to(self.device)
             )
             '''
             #########################################
             '''
 
             total_loss += loss.mean()
-            total_grad_all += torch.Tensor(total_grad_out).cuda().std()
+            total_grad_all += torch.Tensor(total_grad_out).to(self.device).std()
 
         self.policy_old.load_state_dict(self.policy.state_dict())
 
