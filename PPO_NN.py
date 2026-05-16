@@ -127,7 +127,7 @@ class ActorCritic(nn.Module):
         return action_logprobs, state_values, dist_entropy
 
 
-class PPO_RLOO:
+class PPO_NN_NEW:
     def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6):
 
         self.has_continuous_action_space = has_continuous_action_space
@@ -166,6 +166,7 @@ class PPO_RLOO:
         self.old_grad = 0
         self.learning_rate = 10e-4
         self.max_delta = 10e-5
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def set_action_std(self, new_action_std):
         if self.has_continuous_action_space:
@@ -287,13 +288,17 @@ class PPO_RLOO:
             '''
             deps_w = self.alpha * self.deps_w(loss)
             deps_v = torch.exp(deps_w - deps_w.detach()).mean()
-            CVor = torch.exp((torch.exp(deps_v - deps_v.detach()) - torch.exp(deps_w - deps_w.detach())))
+            CVor = torch.exp((torch.exp(deps_v - deps_v.detach()) - torch.exp(deps_w - deps_w.detach())))-1
+
+
             '''
             #########################################
             '''
 
             # new loss function with CVor
-            loss = CVor * loss.mean()
+            # loss = CVor * loss.mean()
+            loss = CVor + loss.mean()
+            # loss = (1-CVor) + loss.mean()
 
             # take gradient step
             self.optimizer.zero_grad()
@@ -312,21 +317,25 @@ class PPO_RLOO:
                 total_grad.append((parms.grad ** 2).mean())
                 total_grad_out.append((parms.grad).mean())
             self.old_grad = self.cur_grad
-            self.cur_grad = torch.Tensor(total_grad).cuda().mean()
+            # self.cur_grad = torch.Tensor(total_grad).cuda().mean()
+
+            self.cur_grad = torch.Tensor(total_grad).to(device).mean()
             delta_grad = torch.abs(self.cur_grad - self.old_grad)
             if delta_grad > self.max_delta:
                 self.max_delta = delta_grad
             self.alpha = torch.max(
                 torch.min(self.alpha - self.learning_rate * (self.cur_grad - self.old_grad) / self.max_delta,
-                          torch.tensor(1.0).cuda()),
-                torch.tensor(0.0).cuda()
+                          torch.tensor(1.0).to(self.device)),
+                torch.tensor(0.0).to(self.device)
             )
             '''
             #########################################
             '''
 
             total_loss += loss.mean()
-            total_grad_all += torch.Tensor(total_grad_out).cuda().std()
+            # total_grad_all += torch.Tensor(total_grad_out).cuda().std()
+            total_grad_all += torch.Tensor(total_grad_out).to(self.device).std()
+
 
         self.policy_old.load_state_dict(self.policy.state_dict())
 
